@@ -11,6 +11,7 @@ enum AlibiStyle {
 
   String get description => switch (this) {
         AlibiStyle.goofy => 'Surreal nonsense with suspicious confidence.',
-        AlibiStyle.serious => 'Professional damage control with a straight face.',
+        AlibiStyle.serious =>
+          'Professional damage control with a straight face.',
       };
 }

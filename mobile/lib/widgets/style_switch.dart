@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/alibi_style.dart';
+import '../theme/app_theme.dart';
 
 class StyleSwitch extends StatelessWidget {
   const StyleSwitch({
@@ -15,6 +16,7 @@ class StyleSwitch extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final palette = AppTheme.paletteOf(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -45,7 +47,7 @@ class StyleSwitch extends StatelessWidget {
         const SizedBox(height: 8),
         Text(
           selected.description,
-          style: theme.textTheme.bodyMedium?.copyWith(color: Colors.white70),
+          style: theme.textTheme.bodyMedium?.copyWith(color: palette.mutedText),
         ),
       ],
     );
@@ -66,9 +68,9 @@ class _StyleOptionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final accent = style == AlibiStyle.goofy
-        ? const Color(0xFF4DF7FF)
-        : const Color(0xFFFF4DB8);
+    final palette = AppTheme.paletteOf(context);
+    final accent =
+        style == AlibiStyle.goofy ? palette.goofyAccent : palette.seriousAccent;
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -78,12 +80,11 @@ class _StyleOptionCard extends StatelessWidget {
           duration: const Duration(milliseconds: 180),
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
           decoration: BoxDecoration(
-            color: isSelected
-                ? accent.withValues(alpha: 0.16)
-                : Colors.white.withValues(alpha: 0.04),
+            color:
+                isSelected ? accent.withValues(alpha: 0.16) : palette.panelSoft,
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: isSelected ? accent : Colors.white24,
+              color: isSelected ? accent : palette.border,
               width: isSelected ? 1.6 : 1,
             ),
           ),

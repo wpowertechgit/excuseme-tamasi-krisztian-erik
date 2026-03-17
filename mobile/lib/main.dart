@@ -2,10 +2,12 @@ import 'dart:async';
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
 import 'firebase_options.dart';
 import 'models/alibi_style.dart';
+import 'models/app_visual_theme.dart';
 import 'models/excuse_response.dart';
 import 'models/wall_post.dart';
 import 'services/excuse_api_service.dart';
@@ -14,6 +16,7 @@ import 'theme/app_theme.dart';
 import 'widgets/neon_button.dart';
 import 'widgets/result_card.dart';
 import 'widgets/style_switch.dart';
+import 'widgets/theme_mode_switch.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -27,16 +30,30 @@ Future<void> main() async {
   runApp(const ExcuseMeApp());
 }
 
-class ExcuseMeApp extends StatelessWidget {
+class ExcuseMeApp extends StatefulWidget {
   const ExcuseMeApp({super.key});
+
+  @override
+  State<ExcuseMeApp> createState() => _ExcuseMeAppState();
+}
+
+class _ExcuseMeAppState extends State<ExcuseMeApp> {
+  AppVisualTheme _selectedTheme = AppVisualTheme.defaultMode;
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Excuse Me',
-      theme: AppTheme.darkTheme,
-      home: const ExcuseHomePage(),
+      theme: AppTheme.themeFor(_selectedTheme),
+      home: ExcuseHomePage(
+        selectedTheme: _selectedTheme,
+        onThemeChanged: (theme) {
+          setState(() {
+            _selectedTheme = theme;
+          });
+        },
+      ),
     );
   }
 }
@@ -44,11 +61,15 @@ class ExcuseMeApp extends StatelessWidget {
 class ExcuseHomePage extends StatefulWidget {
   const ExcuseHomePage({
     super.key,
+    this.selectedTheme = AppVisualTheme.defaultMode,
+    this.onThemeChanged,
     ExcuseApiService? apiService,
     WallService? wallService,
   })  : _apiService = apiService,
         _wallService = wallService;
 
+  final AppVisualTheme selectedTheme;
+  final ValueChanged<AppVisualTheme>? onThemeChanged;
   final ExcuseApiService? _apiService;
   final WallService? _wallService;
 
@@ -169,17 +190,50 @@ class _ExcuseHomePageState extends State<ExcuseHomePage>
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final palette = AppTheme.paletteOf(context);
+
     return Scaffold(
+      endDrawer: Drawer(
+        backgroundColor: palette.panel,
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(18, 20, 18, 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Theme studio',
+                  style: theme.textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Switch the app look without crowding the main screen.',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: palette.mutedText,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                ThemeModeSwitch(
+                  selected: widget.selectedTheme,
+                  onChanged: (nextTheme) {
+                    widget.onThemeChanged?.call(nextTheme);
+                    Navigator.of(context).maybePop();
+                  },
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
       body: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [
-              Color(0xFF050816),
-              Color(0xFF0B1430),
-              Color(0xFF1B0937),
-            ],
+            colors: palette.backgroundGradient,
           ),
         ),
         child: SafeArea(
@@ -187,41 +241,77 @@ class _ExcuseHomePageState extends State<ExcuseHomePage>
             children: [
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
-                child: Row(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'EXCUSE ME',
-                            style: Theme.of(context)
-                                .textTheme
-                                .headlineMedium
-                                ?.copyWith(fontWeight: FontWeight.w700),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  _BrandLogo(palette: palette),
+                                  const SizedBox(width: 14),
+                                  Expanded(
+                                    child: Text(
+                                      'Excuse Me',
+                                      style: GoogleFonts.roboto(
+                                        textStyle:
+                                            theme.textTheme.headlineMedium,
+                                        fontWeight: FontWeight.w700,
+                                        letterSpacing: 0.2,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Turning your pathetic truths into legendary alibis.',
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  color: palette.mutedText,
+                                ),
+                              ),
+                            ],
                           ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Turning your pathetic truths into legendary alibis.',
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodyMedium
-                                ?.copyWith(color: Colors.white70),
+                        ),
+                        const SizedBox(width: 12),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 10,
                           ),
-                        ],
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 10,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(18),
-                        border: Border.all(color: const Color(0xFF4DF7FF)),
-                      ),
-                      child: const Text('XD mode enabled'),
+                          decoration: BoxDecoration(
+                            color: palette.shellBackground,
+                            borderRadius: BorderRadius.circular(18),
+                            border: Border.all(color: palette.shellBorder),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text('${widget.selectedTheme.label} mode'),
+                              const SizedBox(width: 8),
+                              Builder(
+                                builder: (context) => InkWell(
+                                  borderRadius: BorderRadius.circular(12),
+                                  onTap: () => Scaffold.of(context).openEndDrawer(),
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(2),
+                                    child: Icon(
+                                      Icons.tune_rounded,
+                                      size: 18,
+                                      color: theme.colorScheme.onSurface,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -264,6 +354,66 @@ class _ExcuseHomePageState extends State<ExcuseHomePage>
   }
 }
 
+class _BrandLogo extends StatelessWidget {
+  const _BrandLogo({required this.palette});
+
+  final AppPalette palette;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 58,
+      height: 58,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            palette.accent.withValues(alpha: 0.95),
+            palette.accentSecondary.withValues(alpha: 0.9),
+          ],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: palette.accent.withValues(alpha: 0.28),
+            blurRadius: 28,
+            spreadRadius: 2,
+          ),
+          BoxShadow(
+            color: palette.accentSecondary.withValues(alpha: 0.18),
+            blurRadius: 36,
+            spreadRadius: 4,
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(3),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: palette.panel,
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.14),
+            ),
+          ),
+          child: ClipOval(
+            child: Image.asset(
+              'assets/excuse_me_icon.png',
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => Icon(
+                Icons.auto_awesome,
+                color: palette.accent,
+                size: 28,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _GeneratorTab extends StatelessWidget {
   const _GeneratorTab({
     required this.truthController,
@@ -289,15 +439,17 @@ class _GeneratorTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = AppTheme.paletteOf(context);
+
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
         Container(
           padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.05),
+            color: palette.panelSoft,
             borderRadius: BorderRadius.circular(28),
-            border: Border.all(color: const Color(0x33FFFFFF)),
+            border: Border.all(color: palette.border),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -312,7 +464,7 @@ class _GeneratorTab extends StatelessWidget {
                 style: Theme.of(context)
                     .textTheme
                     .bodyMedium
-                    ?.copyWith(color: Colors.white70),
+                    ?.copyWith(color: palette.mutedText),
               ),
               const SizedBox(height: 16),
               TextField(
@@ -343,7 +495,7 @@ class _GeneratorTab extends StatelessWidget {
                   style: Theme.of(context)
                       .textTheme
                       .bodyMedium
-                      ?.copyWith(color: const Color(0xFFFF8FBF)),
+                      ?.copyWith(color: palette.error),
                 ),
               ],
             ],
@@ -371,6 +523,8 @@ class _WallTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = AppTheme.paletteOf(context);
+
     return StreamBuilder<List<WallPost>>(
       stream: wallService.streamPosts(),
       builder: (context, snapshot) {
@@ -414,7 +568,7 @@ class _WallTab extends StatelessWidget {
                           style: Theme.of(context)
                               .textTheme
                               .bodySmall
-                              ?.copyWith(color: Colors.white60),
+                              ?.copyWith(color: palette.mutedText),
                         ),
                       ],
                     ),
@@ -429,16 +583,31 @@ class _WallTab extends StatelessWidget {
                       style: Theme.of(context)
                           .textTheme
                           .bodyMedium
-                          ?.copyWith(color: Colors.white70),
+                          ?.copyWith(color: palette.mutedText),
                     ),
                     const SizedBox(height: 12),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: OutlinedButton.icon(
-                        onPressed: () => wallService.incrementLol(post.id),
-                        icon: const Icon(Icons.sentiment_very_satisfied),
-                        label: Text('LOL ${post.lolCount}'),
-                      ),
+                    Text(
+                      'React to this disaster',
+                      style: Theme.of(context).textTheme.labelLarge,
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        for (final emoji in WallPost.supportedReactions) ...[
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: () =>
+                                  wallService.incrementReaction(post.id, emoji),
+                              child: Text(
+                                '$emoji ${post.reactions[emoji] ?? 0}',
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          ),
+                          if (emoji != WallPost.supportedReactions.last)
+                            const SizedBox(width: 10),
+                        ],
+                      ],
                     ),
                   ],
                 ),

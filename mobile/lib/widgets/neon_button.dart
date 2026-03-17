@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../theme/app_theme.dart';
+
 class NeonButton extends StatelessWidget {
   const NeonButton({
     super.key,
@@ -16,18 +18,20 @@ class NeonButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = AppTheme.paletteOf(context);
+
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF4DF7FF), Color(0xFFFF4DB8)],
+        gradient: LinearGradient(
+          colors: [palette.accent, palette.accentSecondary],
         ),
         borderRadius: BorderRadius.circular(18),
-        boxShadow: const [
+        boxShadow: [
           BoxShadow(
-            color: Color(0x664DF7FF),
+            color: palette.buttonShadow,
             blurRadius: 24,
-            offset: Offset(0, 10),
+            offset: const Offset(0, 10),
           ),
         ],
       ),
@@ -36,16 +40,20 @@ class NeonButton extends StatelessWidget {
         style: ElevatedButton.styleFrom(
           backgroundColor: Colors.transparent,
           shadowColor: Colors.transparent,
+          foregroundColor: palette.buttonText,
           minimumSize: const Size.fromHeight(60),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(18),
           ),
         ),
         icon: isBusy
-            ? const SizedBox(
+            ? SizedBox(
                 width: 18,
                 height: 18,
-                child: CircularProgressIndicator(strokeWidth: 2),
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: palette.buttonText,
+                ),
               )
             : Icon(icon),
         label: Text(label),

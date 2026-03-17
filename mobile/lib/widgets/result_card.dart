@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/alibi_style.dart';
 import '../models/excuse_response.dart';
+import '../theme/app_theme.dart';
 import 'neon_button.dart';
 
 class ResultCard extends StatelessWidget {
@@ -25,6 +26,8 @@ class ResultCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final palette = AppTheme.paletteOf(context);
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(20),
@@ -45,7 +48,7 @@ class ResultCard extends StatelessWidget {
             Text(
               truth,
               style: theme.textTheme.bodyLarge?.copyWith(
-                color: Colors.white70,
+                color: palette.mutedText,
               ),
             ),
             const SizedBox(height: 16),

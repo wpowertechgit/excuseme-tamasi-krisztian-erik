@@ -10,23 +10,26 @@ typedef WallAddPost = Future<void> Function({
   required ExcuseResponse excuse,
   required AlibiStyle style,
 });
-typedef WallIncrementLol = Future<void> Function(String postId);
+typedef WallIncrementReaction = Future<void> Function(
+  String postId,
+  String emoji,
+);
 
 class WallService {
   WallService({
     FirebaseFirestore? firestore,
     WallPostsStreamFactory? postsStreamFactory,
     WallAddPost? addPostHandler,
-    WallIncrementLol? incrementLolHandler,
+    WallIncrementReaction? incrementReactionHandler,
   })  : _firestore = firestore,
         _postsStreamFactory = postsStreamFactory,
         _addPostHandler = addPostHandler,
-        _incrementLolHandler = incrementLolHandler;
+        _incrementReactionHandler = incrementReactionHandler;
 
   final FirebaseFirestore? _firestore;
   final WallPostsStreamFactory? _postsStreamFactory;
   final WallAddPost? _addPostHandler;
-  final WallIncrementLol? _incrementLolHandler;
+  final WallIncrementReaction? _incrementReactionHandler;
 
   CollectionReference<Map<String, dynamic>> get _posts =>
       (_firestore ?? FirebaseFirestore.instance).collection('wall_posts');
@@ -60,18 +63,21 @@ class WallService {
       'excuse': excuse.excuse,
       'style': style.apiValue,
       'language': excuse.detectedLanguage,
+      'reactions': {
+        for (final emoji in WallPost.supportedReactions) emoji: 0,
+      },
       'lolCount': 0,
       'createdAt': FieldValue.serverTimestamp(),
     });
   }
 
-  Future<void> incrementLol(String postId) {
-    final override = _incrementLolHandler;
+  Future<void> incrementReaction(String postId, String emoji) {
+    final override = _incrementReactionHandler;
     if (override != null) {
-      return override(postId);
+      return override(postId, emoji);
     }
     return _posts.doc(postId).update({
-      'lolCount': FieldValue.increment(1),
+      'reactions.$emoji': FieldValue.increment(1),
     });
   }
 }

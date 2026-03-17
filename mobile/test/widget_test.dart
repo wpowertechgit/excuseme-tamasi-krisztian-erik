@@ -31,8 +31,9 @@ void main() {
   testWidgets('empty input keeps SAVE ME disabled', (tester) async {
     final wallService = WallService(
       postsStreamFactory: () => Stream.value(const <WallPost>[]),
-      addPostHandler: ({required truth, required excuse, required style}) async {},
-      incrementLolHandler: (_) async {},
+      addPostHandler: (
+          {required truth, required excuse, required style}) async {},
+      incrementReactionHandler: (_, __) async {},
     );
 
     await tester.pumpWidget(
@@ -54,11 +55,17 @@ void main() {
   });
 
   testWidgets('generation renders returned excuse', (tester) async {
+    tester.view.physicalSize = const Size(1200, 2000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
     final api = FakeExcuseApiService();
     final wallService = WallService(
       postsStreamFactory: () => Stream.value(const <WallPost>[]),
-      addPostHandler: ({required truth, required excuse, required style}) async {},
-      incrementLolHandler: (_) async {},
+      addPostHandler: (
+          {required truth, required excuse, required style}) async {},
+      incrementReactionHandler: (_, __) async {},
     );
 
     await tester.pumpWidget(
@@ -71,30 +78,43 @@ void main() {
     );
 
     await tester.enterText(find.byType(TextField), 'I overslept.');
+    await tester.pump();
     await tester.tap(find.text('SAVE ME'));
     await tester.pumpAndSettle();
 
-    expect(find.text('A raccoon sabotaged the tram schedule.'), findsOneWidget);
+    expect(
+      find.text(
+        'A raccoon sabotaged the tram schedule.',
+        skipOffstage: false,
+      ),
+      findsOneWidget,
+    );
     expect(api.lastStyle, AlibiStyle.goofy);
   });
 
   testWidgets('wall tab renders streamed posts', (tester) async {
     final wallService = WallService(
       postsStreamFactory: () => Stream.value(
-        const [
-          WallPost(
+        [
+          const WallPost(
             id: '1',
             truth: 'I overslept.',
             excuse: 'A raccoon sabotaged the tram schedule.',
             style: 'goofy',
             language: 'en',
-            lolCount: 4,
+            reactions: {
+              '😂': 4,
+              '🔥': 2,
+              '💀': 1,
+              '🤡': 0,
+            },
             createdAt: null,
           ),
         ],
       ),
-      addPostHandler: ({required truth, required excuse, required style}) async {},
-      incrementLolHandler: (_) async {},
+      addPostHandler: (
+          {required truth, required excuse, required style}) async {},
+      incrementReactionHandler: (_, __) async {},
     );
 
     await tester.pumpWidget(
@@ -110,6 +130,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('A raccoon sabotaged the tram schedule.'), findsOneWidget);
-    expect(find.text('LOL 4'), findsOneWidget);
+    expect(find.text('😂 4'), findsOneWidget);
+    expect(find.text('🔥 2'), findsOneWidget);
+    expect(find.text('💀 1'), findsOneWidget);
   });
 }

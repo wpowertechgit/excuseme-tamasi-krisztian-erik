@@ -18,6 +18,22 @@ Turning your pathetic truths into legendary alibis.
 
 ## Local setup
 
+### Start both apps
+
+From the repository root, run:
+
+```powershell
+.\start.ps1
+```
+
+Or use:
+
+```bat
+start.bat
+```
+
+This opens one terminal for the FastAPI server and one for the Flutter web app in Chrome.
+
 ### Mobile
 
 1. Install Flutter.
