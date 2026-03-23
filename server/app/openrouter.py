@@ -1,19 +1,23 @@
 from __future__ import annotations
 
+import json
 import re
 
 import httpx
 
 from .config import Settings
-from .models import AlibiStyle, GenerateExcuseResponse
+from .models import AlibiStyle, ExcuseCategory, GeneratedExcuseDraft
 
 SYSTEM_PROMPT = (
     "Your goal is to transform the user's pathetic truth into a legendary excuse.\n"
     "RULES:\n"
     "Style - GOOFY: Be surreal, unexpected, and borderline genius. Aim for an 'XD' reaction.\n"
     "Style - SERIOUS: Be professional and make it seem like an unavoidable force majeure.\n"
-    "CRITICAL: Always respond in the EXACT same language as the user's input.\n"
-    "FORMAT: Max 2 short sentences. No fluff. Just the raw excuse.\n"
+    "CRITICAL: Always respond in the EXACT same language as the user's input. Validate the context beforehand\n"
+    "FORMAT: Max 2 short sentences for the excuse text.\n"
+    "OUTPUT: Reply with a single JSON object only. No markdown fences. "
+    'Use exactly these keys: "excuse" and "category".\n'
+    "CATEGORY: Choose one of: work, personal, family, romance, health, sports, travel, other.\n"
     "TONE: Act like a person who is way too good at lying."
 )
 
@@ -63,6 +67,50 @@ def _detect_language(text: str) -> str:
     return 'unknown'
 
 
+def _extract_json_object(content: str) -> dict[str, object]:
+    stripped = content.strip()
+    match = re.search(r'\{.*\}', stripped, re.DOTALL)
+    candidate = match.group(0) if match else stripped
+    try:
+        data = json.loads(candidate)
+    except json.JSONDecodeError as exc:
+        raise OpenRouterError('Model returned invalid JSON.') from exc
+    if not isinstance(data, dict):
+        raise OpenRouterError('Model returned an invalid payload.')
+    return data
+
+
+def _parse_generated_excuse(
+    content: str,
+    *,
+    style: AlibiStyle,
+    expected_language: str,
+) -> GeneratedExcuseDraft:
+    data = _extract_json_object(content)
+    excuse = str(data.get('excuse', '')).strip()
+    category_value = str(data.get('category', '')).strip().lower()
+    if not excuse:
+        raise OpenRouterError('Model returned an empty excuse.')
+    try:
+        category = ExcuseCategory(category_value)
+    except ValueError as exc:
+        raise OpenRouterError('Model returned an invalid category.') from exc
+
+    actual_language = _detect_language(excuse)
+    if (
+        expected_language != 'unknown'
+        and actual_language not in {expected_language, 'unknown'}
+    ):
+        raise OpenRouterError('Model returned an excuse in the wrong language.')
+
+    return GeneratedExcuseDraft(
+        excuse=excuse,
+        detectedLanguage=expected_language,
+        style=style,
+        category=category,
+    )
+
+
 def _build_messages(
     *,
     truth: str,
@@ -77,8 +125,8 @@ def _build_messages(
     )
     if retry:
         user_content += (
-            '\nYour previous answer used the wrong language. '
-            'Rewrite the excuse in the required output language only.'
+            '\nYour previous answer was invalid. '
+            'Return valid JSON only, with the correct language and allowed category.'
         )
 
     return [
@@ -101,7 +149,10 @@ class OpenRouterClient:
         *,
         truth: str,
         style: AlibiStyle,
-    ) -> GenerateExcuseResponse:
+    ) -> GeneratedExcuseDraft:
+        if not self._settings.openrouter_api_key:
+            raise OpenRouterError('OpenRouter API key is not configured.')
+
         expected_language = _detect_language(truth)
 
         if self._http_client is not None:
@@ -129,7 +180,7 @@ class OpenRouterClient:
         truth: str,
         style: AlibiStyle,
         expected_language: str,
-    ) -> GenerateExcuseResponse:
+    ) -> GeneratedExcuseDraft:
         for attempt in range(2):
             payload = {
                 'model': self._settings.openrouter_model,
@@ -141,24 +192,22 @@ class OpenRouterClient:
                 ),
             }
             content = await self._send_request(client, payload)
-            actual_language = _detect_language(content)
-            if (
-                expected_language == 'unknown'
-                or actual_language == expected_language
-                or actual_language == 'unknown'
-            ):
-                return GenerateExcuseResponse(
-                    excuse=content,
-                    detectedLanguage=expected_language,
+            try:
+                return _parse_generated_excuse(
+                    content,
                     style=style,
+                    expected_language=expected_language,
                 )
+            except OpenRouterError:
+                if attempt == 1:
+                    raise
 
-        raise OpenRouterError('Model returned an excuse in the wrong language.')
+        raise OpenRouterError('Model returned an invalid excuse payload.')
 
     async def _send_request(
         self,
         client: httpx.AsyncClient,
-        payload: dict,
+        payload: dict[str, object],
     ) -> str:
         try:
             response = await client.post(
@@ -186,3 +235,4 @@ class OpenRouterClient:
             raise OpenRouterError('Model returned an empty excuse.')
 
         return content
+

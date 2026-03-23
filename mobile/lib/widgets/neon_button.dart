@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
+import '../utils/ui_logger.dart';
 
 class NeonButton extends StatelessWidget {
   const NeonButton({
@@ -36,7 +37,12 @@ class NeonButton extends StatelessWidget {
         ],
       ),
       child: ElevatedButton.icon(
-        onPressed: isBusy ? null : onPressed,
+        onPressed: isBusy || onPressed == null
+            ? null
+            : () {
+                logUiAction('Pressed button: $label');
+                onPressed?.call();
+              },
         style: ElevatedButton.styleFrom(
           backgroundColor: Colors.transparent,
           shadowColor: Colors.transparent,

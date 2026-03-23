@@ -8,11 +8,20 @@ import 'package:intl/intl.dart';
 import 'firebase_options.dart';
 import 'models/alibi_style.dart';
 import 'models/app_visual_theme.dart';
+import 'models/auth_session.dart';
 import 'models/excuse_response.dart';
+import 'models/history_entry.dart';
 import 'models/wall_post.dart';
+import 'screens/auth_screen.dart';
+import 'screens/categories_screen.dart';
+import 'screens/hall_of_fame_screen.dart';
+import 'screens/history_screen.dart';
+import 'screens/stats_screen.dart';
+import 'services/auth_service.dart';
 import 'services/excuse_api_service.dart';
 import 'services/wall_service.dart';
 import 'theme/app_theme.dart';
+import 'utils/ui_logger.dart';
 import 'widgets/neon_button.dart';
 import 'widgets/result_card.dart';
 import 'widgets/style_switch.dart';
@@ -38,7 +47,28 @@ class ExcuseMeApp extends StatefulWidget {
 }
 
 class _ExcuseMeAppState extends State<ExcuseMeApp> {
+  late final AuthService _authService;
   AppVisualTheme _selectedTheme = AppVisualTheme.defaultMode;
+  AuthSession? _session;
+  bool _loadingSession = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _authService = AuthService();
+    _restoreSession();
+  }
+
+  Future<void> _restoreSession() async {
+    final session = await _authService.loadSession();
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _session = session;
+      _loadingSession = false;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -46,14 +76,25 @@ class _ExcuseMeAppState extends State<ExcuseMeApp> {
       debugShowCheckedModeBanner: false,
       title: 'Excuse Me',
       theme: AppTheme.themeFor(_selectedTheme),
-      home: ExcuseHomePage(
-        selectedTheme: _selectedTheme,
-        onThemeChanged: (theme) {
-          setState(() {
-            _selectedTheme = theme;
-          });
-        },
-      ),
+      home: _loadingSession
+          ? const Scaffold(
+              body: Center(child: CircularProgressIndicator()),
+            )
+          : ExcuseHomePage(
+              selectedTheme: _selectedTheme,
+              onThemeChanged: (theme) {
+                setState(() {
+                  _selectedTheme = theme;
+                });
+              },
+              authService: _authService,
+              session: _session,
+              onSessionChanged: (session) {
+                setState(() {
+                  _session = session;
+                });
+              },
+            ),
     );
   }
 }
@@ -63,6 +104,9 @@ class ExcuseHomePage extends StatefulWidget {
     super.key,
     this.selectedTheme = AppVisualTheme.defaultMode,
     this.onThemeChanged,
+    this.authService,
+    this.session,
+    this.onSessionChanged,
     ExcuseApiService? apiService,
     WallService? wallService,
   })  : _apiService = apiService,
@@ -70,6 +114,9 @@ class ExcuseHomePage extends StatefulWidget {
 
   final AppVisualTheme selectedTheme;
   final ValueChanged<AppVisualTheme>? onThemeChanged;
+  final AuthService? authService;
+  final AuthSession? session;
+  final ValueChanged<AuthSession?>? onSessionChanged;
   final ExcuseApiService? _apiService;
   final WallService? _wallService;
 
@@ -83,7 +130,9 @@ class _ExcuseHomePageState extends State<ExcuseHomePage>
   late final TextEditingController _truthController;
   late final ExcuseApiService _apiService;
   late final WallService _wallService;
+  late final AuthService _authService;
 
+  AuthSession? _session;
   AlibiStyle _selectedStyle = AlibiStyle.goofy;
   ExcuseResponse? _response;
   bool _isGenerating = false;
@@ -93,10 +142,23 @@ class _ExcuseHomePageState extends State<ExcuseHomePage>
   @override
   void initState() {
     super.initState();
+    _session = widget.session;
     _tabController = TabController(length: 2, vsync: this);
     _truthController = TextEditingController()..addListener(_handleTextChange);
-    _apiService = widget._apiService ?? ExcuseApiService();
-    _wallService = widget._wallService ?? WallService();
+    _authService = widget.authService ?? AuthService();
+    _apiService = widget._apiService ??
+        ExcuseApiService(
+          authTokenProvider: () => _session?.token,
+        );
+    _wallService = widget._wallService ?? WallService(apiService: _apiService);
+  }
+
+  @override
+  void didUpdateWidget(covariant ExcuseHomePage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.session != widget.session) {
+      _session = widget.session;
+    }
   }
 
   void _handleTextChange() {
@@ -112,7 +174,34 @@ class _ExcuseHomePageState extends State<ExcuseHomePage>
     super.dispose();
   }
 
+  Future<AuthSession?> _openAuth() async {
+    final session = await Navigator.of(context).push<AuthSession>(
+      MaterialPageRoute(
+        builder: (_) => AuthScreen(authService: _authService),
+      ),
+    );
+    if (session != null) {
+      setState(() {
+        _session = session;
+      });
+      widget.onSessionChanged?.call(session);
+    }
+    return session;
+  }
+
+  Future<bool> _ensureAuthenticated() async {
+    if (_session != null) {
+      return true;
+    }
+    final session = await _openAuth();
+    return session != null;
+  }
+
   Future<void> _generate() async {
+    if (!await _ensureAuthenticated()) {
+      return;
+    }
+
     FocusScope.of(context).unfocus();
     setState(() {
       _isGenerating = true;
@@ -156,6 +245,9 @@ class _ExcuseHomePageState extends State<ExcuseHomePage>
     if (response == null) {
       return;
     }
+    if (!await _ensureAuthenticated()) {
+      return;
+    }
 
     setState(() {
       _isPosting = true;
@@ -175,9 +267,13 @@ class _ExcuseHomePageState extends State<ExcuseHomePage>
         const SnackBar(content: Text('Your nonsense is now public.')),
       );
       _tabController.animateTo(1);
+    } on ExcuseApiException catch (error) {
+      setState(() {
+        _error = error.message;
+      });
     } catch (_) {
       setState(() {
-        _error = 'Posting failed. Firebase is probably not configured yet.';
+        _error = 'Posting failed. Firebase or the backend is probably not ready.';
       });
     } finally {
       if (mounted) {
@@ -186,6 +282,65 @@ class _ExcuseHomePageState extends State<ExcuseHomePage>
         });
       }
     }
+  }
+
+  Future<void> _logout() async {
+    await _authService.logout();
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _session = null;
+      _response = null;
+    });
+    widget.onSessionChanged?.call(null);
+  }
+
+  Future<void> _openStats() async {
+    if (!await _ensureAuthenticated()) {
+      return;
+    }
+    if (!mounted || _session == null) {
+      return;
+    }
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => StatsScreen(
+          apiService: _apiService,
+          username: _session!.username,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openHistory() async {
+    if (!await _ensureAuthenticated()) {
+      return;
+    }
+    if (!mounted) {
+      return;
+    }
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => HistoryScreen(
+          apiService: _apiService,
+          onReuse: (entry) {
+            _tabController.animateTo(0);
+            setState(() {
+              _truthController.text = entry.truth;
+              _selectedStyle = entry.style;
+              _response = null;
+            });
+          },
+        ),
+      ),
+    );
+  }
+
+  Future<void> _pushScreen(Widget screen) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => screen),
+    );
   }
 
   @override
@@ -197,34 +352,104 @@ class _ExcuseHomePageState extends State<ExcuseHomePage>
       endDrawer: Drawer(
         backgroundColor: palette.panel,
         child: SafeArea(
-          child: Padding(
+          child: ListView(
             padding: const EdgeInsets.fromLTRB(18, 20, 18, 20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Theme studio',
-                  style: theme.textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
+            children: [
+              Text(
+                _session == null
+                    ? 'Guest mode'
+                    : _session!.isAdmin
+                        ? '@${_session!.username} (admin)'
+                        : '@${_session!.username}',
+                style: theme.textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
                 ),
-                const SizedBox(height: 6),
-                Text(
-                  'Switch the app look without crowding the main screen.',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: palette.mutedText,
-                  ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                _session == null
+                    ? 'Log in to save excuses, unlock history, and track your stats.'
+                    : 'Your account now owns your saved excuses, stats, and wall posts.',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: palette.mutedText,
                 ),
-                const SizedBox(height: 20),
-                ThemeModeSwitch(
-                  selected: widget.selectedTheme,
-                  onChanged: (nextTheme) {
-                    widget.onThemeChanged?.call(nextTheme);
-                    Navigator.of(context).maybePop();
+              ),
+              const SizedBox(height: 18),
+              if (_session == null)
+                NeonButton(
+                  onPressed: _openAuth,
+                  label: 'Log in / Sign up',
+                  icon: Icons.login_rounded,
+                )
+              else
+                OutlinedButton.icon(
+                  onPressed: () {
+                    logUiAction('Pressed button: Log out');
+                    _logout();
                   },
+                  icon: const Icon(Icons.logout_rounded),
+                  label: const Text('Log out'),
                 ),
-              ],
-            ),
+              const SizedBox(height: 24),
+              Text(
+                'Explore',
+                style: theme.textTheme.titleMedium,
+              ),
+              const SizedBox(height: 8),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.insights_rounded),
+                title: const Text('Stats'),
+                onTap: () {
+                  logUiAction('Opened drawer destination: Stats');
+                  Navigator.of(context).maybePop();
+                  _openStats();
+                },
+              ),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.history_rounded),
+                title: const Text('My History'),
+                onTap: () {
+                  logUiAction('Opened drawer destination: My History');
+                  Navigator.of(context).maybePop();
+                  _openHistory();
+                },
+              ),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.category_rounded),
+                title: const Text('Categories'),
+                onTap: () {
+                  logUiAction('Opened drawer destination: Categories');
+                  Navigator.of(context).maybePop();
+                  _pushScreen(CategoriesScreen(apiService: _apiService));
+                },
+              ),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.emoji_events_rounded),
+                title: const Text('Hall of Fame'),
+                onTap: () {
+                  logUiAction('Opened drawer destination: Hall of Fame');
+                  Navigator.of(context).maybePop();
+                  _pushScreen(HallOfFameScreen(apiService: _apiService));
+                },
+              ),
+              const SizedBox(height: 24),
+              Text(
+                'Theme studio',
+                style: theme.textTheme.titleMedium,
+              ),
+              const SizedBox(height: 8),
+              ThemeModeSwitch(
+                selected: widget.selectedTheme,
+                onChanged: (nextTheme) {
+                  widget.onThemeChanged?.call(nextTheme);
+                  Navigator.of(context).maybePop();
+                },
+              ),
+            ],
           ),
         ),
       ),
@@ -292,16 +517,25 @@ class _ExcuseHomePageState extends State<ExcuseHomePage>
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Text('${widget.selectedTheme.label} mode'),
-                              const SizedBox(width: 8),
+                              Text(
+                                _session == null
+                                    ? 'Guest'
+                                    : _session!.isAdmin
+                                        ? '@${_session!.username} • admin'
+                                        : '@${_session!.username}',
+                              ),
+                              const SizedBox(width: 10),
                               Builder(
                                 builder: (context) => InkWell(
                                   borderRadius: BorderRadius.circular(12),
-                                  onTap: () => Scaffold.of(context).openEndDrawer(),
+                                  onTap: () {
+                                    logUiAction('Opened drawer');
+                                    Scaffold.of(context).openEndDrawer();
+                                  },
                                   child: Padding(
                                     padding: const EdgeInsets.all(2),
                                     child: Icon(
-                                      Icons.tune_rounded,
+                                      Icons.dashboard_customize_rounded,
                                       size: 18,
                                       color: theme.colorScheme.onSurface,
                                     ),
@@ -341,8 +575,12 @@ class _ExcuseHomePageState extends State<ExcuseHomePage>
                       isGenerating: _isGenerating,
                       isPosting: _isPosting,
                       onPost: _postCurrent,
+                      isSignedIn: _session != null,
                     ),
-                    _WallTab(wallService: _wallService),
+                    _WallTab(
+                      wallService: _wallService,
+                      isAdmin: _session?.isAdmin ?? false,
+                    ),
                   ],
                 ),
               ),
@@ -425,6 +663,7 @@ class _GeneratorTab extends StatelessWidget {
     required this.isGenerating,
     required this.isPosting,
     required this.onPost,
+    required this.isSignedIn,
   });
 
   final TextEditingController truthController;
@@ -436,6 +675,7 @@ class _GeneratorTab extends StatelessWidget {
   final bool isGenerating;
   final bool isPosting;
   final VoidCallback onPost;
+  final bool isSignedIn;
 
   @override
   Widget build(BuildContext context) {
@@ -466,7 +706,24 @@ class _GeneratorTab extends StatelessWidget {
                     .bodyMedium
                     ?.copyWith(color: palette.mutedText),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
+              if (!isSignedIn)
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: palette.panel,
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(color: palette.border),
+                  ),
+                  child: Text(
+                    'Sign in first so every generated excuse can be saved to your history and stats.',
+                    style: Theme.of(context)
+                        .textTheme
+                        .bodyMedium
+                        ?.copyWith(color: palette.mutedText),
+                  ),
+                ),
+              if (!isSignedIn) const SizedBox(height: 12),
               TextField(
                 controller: truthController,
                 maxLines: 5,
@@ -517,9 +774,13 @@ class _GeneratorTab extends StatelessWidget {
 }
 
 class _WallTab extends StatelessWidget {
-  const _WallTab({required this.wallService});
+  const _WallTab({
+    required this.wallService,
+    required this.isAdmin,
+  });
 
   final WallService wallService;
+  final bool isAdmin;
 
   @override
   Widget build(BuildContext context) {
@@ -530,7 +791,7 @@ class _WallTab extends StatelessWidget {
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           return const Center(
-            child: Text('Firestore is not ready yet.'),
+            child: Text('The wall feed is not ready yet.'),
           );
         }
         if (!snapshot.hasData) {
@@ -559,18 +820,23 @@ class _WallTab extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
                       children: [
                         Chip(label: Text(post.style.toUpperCase())),
-                        const SizedBox(width: 8),
-                        Text(
-                          stamp,
-                          style: Theme.of(context)
-                              .textTheme
-                              .bodySmall
-                              ?.copyWith(color: palette.mutedText),
-                        ),
+                        Chip(label: Text(post.category.label)),
+                        Chip(label: Text('@${post.username}')),
+                        if (isAdmin) const Chip(label: Text('ADMIN MODE')),
                       ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      stamp,
+                      style: Theme.of(context)
+                          .textTheme
+                          .bodySmall
+                          ?.copyWith(color: palette.mutedText),
                     ),
                     const SizedBox(height: 12),
                     Text(
@@ -596,8 +862,12 @@ class _WallTab extends StatelessWidget {
                         for (final emoji in WallPost.supportedReactions) ...[
                           Expanded(
                             child: OutlinedButton(
-                              onPressed: () =>
-                                  wallService.incrementReaction(post.id, emoji),
+                              onPressed: () {
+                                logUiAction(
+                                  'Pressed wall reaction: $emoji on post ${post.id}',
+                                );
+                                wallService.incrementReaction(post.id, emoji);
+                              },
                               child: Text(
                                 '$emoji ${post.reactions[emoji] ?? 0}',
                                 textAlign: TextAlign.center,
@@ -609,6 +879,37 @@ class _WallTab extends StatelessWidget {
                         ],
                       ],
                     ),
+                    if (isAdmin) ...[
+                      const SizedBox(height: 12),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: OutlinedButton.icon(
+                          onPressed: () async {
+                            logUiAction('Pressed admin delete on post ${post.id}');
+                            try {
+                              await wallService.deletePost(post.id);
+                              if (!context.mounted) {
+                                return;
+                              }
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Post deleted by admin.'),
+                                ),
+                              );
+                            } on ExcuseApiException catch (error) {
+                              if (!context.mounted) {
+                                return;
+                              }
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text(error.message)),
+                              );
+                            }
+                          },
+                          icon: const Icon(Icons.delete_forever_rounded),
+                          label: const Text('Delete post'),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),

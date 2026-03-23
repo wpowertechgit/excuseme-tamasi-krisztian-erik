@@ -15,7 +15,9 @@ __pycache__/
 .pytest_cache/
 .mypy_cache/
 *.pyc
-
+AGENTS.md
+main.tex
+references.bib  
 .env
 server/.env
 mobile/lib/firebase_options.dart

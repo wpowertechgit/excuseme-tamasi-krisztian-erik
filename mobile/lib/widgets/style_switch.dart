@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/alibi_style.dart';
 import '../theme/app_theme.dart';
+import '../utils/ui_logger.dart';
 
 class StyleSwitch extends StatelessWidget {
   const StyleSwitch({
@@ -37,7 +38,10 @@ class StyleSwitch extends StatelessWidget {
                     child: _StyleOptionCard(
                       style: style,
                       isSelected: selected == style,
-                      onTap: () => onChanged(style),
+                      onTap: () {
+                        logUiAction('Selected style: ${style.apiValue}');
+                        onChanged(style);
+                      },
                     ),
                   ),
                 ),

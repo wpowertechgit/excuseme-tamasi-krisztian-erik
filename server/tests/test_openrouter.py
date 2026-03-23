@@ -2,7 +2,7 @@ import httpx
 import pytest
 
 from app.config import Settings
-from app.models import AlibiStyle
+from app.models import AlibiStyle, ExcuseCategory
 from app.openrouter import OpenRouterClient, OpenRouterError
 
 
@@ -30,12 +30,20 @@ class FakeHttpClient:
 
 
 @pytest.mark.asyncio
-async def test_openrouter_parses_response():
+async def test_openrouter_parses_structured_response():
     response = httpx.Response(
         200,
+        request=httpx.Request('POST', 'http://testserver'),
         json={
             'choices': [
-                {'message': {'content': 'A diplomatic plumbing event slowed me down.'}}
+                {
+                    'message': {
+                        'content': (
+                            '{"excuse":"Egy diplomatikus vizvezetek-incidens tartott fel.",'
+                            '"category":"health"}'
+                        ),
+                    },
+                }
             ]
         },
     )
@@ -49,19 +57,21 @@ async def test_openrouter_parses_response():
         style=AlibiStyle.serious,
     )
 
-    assert result.excuse == 'A diplomatic plumbing event slowed me down.'
+    assert result.excuse == 'Egy diplomatikus vizvezetek-incidens tartott fel.'
     assert result.detectedLanguage == 'hu'
+    assert result.category == ExcuseCategory.health
 
 
 @pytest.mark.asyncio
-async def test_openrouter_rejects_empty_content():
+async def test_openrouter_rejects_invalid_json():
     response = httpx.Response(
         200,
-        json={'choices': [{'message': {'content': '   '}}]},
+        request=httpx.Request('POST', 'http://testserver'),
+        json={'choices': [{'message': {'content': 'not-json'}}]},
     )
     client = OpenRouterClient(
         build_settings(),
-        http_client=FakeHttpClient(responses=[response]),
+        http_client=FakeHttpClient(responses=[response, response]),
     )
 
     with pytest.raises(OpenRouterError):
@@ -75,11 +85,35 @@ async def test_openrouter_rejects_empty_content():
 async def test_openrouter_retries_wrong_language():
     wrong_language = httpx.Response(
         200,
-        json={'choices': [{'message': {'content': 'Una cabra secuestro el ascensor.'}}]},
+        request=httpx.Request('POST', 'http://testserver'),
+        json={
+            'choices': [
+                {
+                    'message': {
+                        'content': (
+                            '{"excuse":"Una cabra secuestro el ascensor.",'
+                            '"category":"travel"}'
+                        ),
+                    },
+                }
+            ]
+        },
     )
     corrected = httpx.Response(
         200,
-        json={'choices': [{'message': {'content': 'A goat hijacked the elevator.'}}]},
+        request=httpx.Request('POST', 'http://testserver'),
+        json={
+            'choices': [
+                {
+                    'message': {
+                        'content': (
+                            '{"excuse":"A goat hijacked the elevator.",'
+                            '"category":"travel"}'
+                        ),
+                    },
+                }
+            ]
+        },
     )
     fake_client = FakeHttpClient(responses=[wrong_language, corrected])
     client = OpenRouterClient(
@@ -93,4 +127,5 @@ async def test_openrouter_retries_wrong_language():
     )
 
     assert result.excuse == 'A goat hijacked the elevator.'
+    assert result.category == ExcuseCategory.travel
     assert fake_client.calls == 2

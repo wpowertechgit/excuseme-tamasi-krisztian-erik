@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/alibi_style.dart';
 import '../models/excuse_response.dart';
 import '../theme/app_theme.dart';
+import '../utils/ui_logger.dart';
 import 'neon_button.dart';
 
 class ResultCard extends StatelessWidget {
@@ -40,6 +41,7 @@ class ResultCard extends StatelessWidget {
               children: [
                 Chip(label: Text(style.label)),
                 Chip(label: Text(response.detectedLanguage.toUpperCase())),
+                Chip(label: Text(response.category.label)),
               ],
             ),
             const SizedBox(height: 16),
@@ -63,7 +65,10 @@ class ResultCard extends StatelessWidget {
               children: [
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: onRegenerate,
+                    onPressed: () {
+                      logUiAction('Pressed button: Roll again');
+                      onRegenerate();
+                    },
                     icon: const Icon(Icons.refresh),
                     label: const Text('Roll again'),
                   ),

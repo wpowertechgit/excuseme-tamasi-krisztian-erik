@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/app_visual_theme.dart';
 import '../theme/app_theme.dart';
+import '../utils/ui_logger.dart';
 
 class ThemeModeSwitch extends StatelessWidget {
   const ThemeModeSwitch({
@@ -40,7 +41,10 @@ class ThemeModeSwitch extends StatelessWidget {
                   child: _ThemeOptionCard(
                     mode: mode,
                     isSelected: selected == mode,
-                    onTap: () => onChanged(mode),
+                    onTap: () {
+                      logUiAction('Selected theme: ${mode.label}');
+                      onChanged(mode);
+                    },
                   ),
                 ),
               )
