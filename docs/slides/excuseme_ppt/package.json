@@ -1,0 +1,18 @@
+{
+  "name": "excuseme-project-slides",
+  "version": "1.0.0",
+  "private": true,
+  "description": "PptxGenJS slide deck for the Excuse Me project",
+  "main": "build_deck.js",
+  "scripts": {
+    "build": "node build_deck.js"
+  },
+  "dependencies": {
+    "fontkit": "^2.0.4",
+    "linebreak": "^1.1.0",
+    "mathjax-full": "^3.2.2",
+    "prismjs": "^1.29.0",
+    "pptxgenjs": "^3.12.0",
+    "skia-canvas": "^2.0.2"
+  }
+}
