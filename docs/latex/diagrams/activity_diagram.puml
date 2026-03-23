@@ -1,0 +1,44 @@
+@startuml
+skinparam shadowing false
+skinparam activity {
+  BackgroundColor white
+  BorderColor black
+  ArrowColor black
+  DiamondBackgroundColor white
+  DiamondBorderColor black
+}
+
+title Excuse Me - Activity Diagram
+
+start
+
+:Open mobile app;
+
+if (Authenticated?) then (yes)
+else (no)
+  :Sign up or log in;
+endif
+
+:Enter truth;
+:Choose style;
+:Send generation request;
+
+if (Request valid?) then (yes)
+  :Generate excuse via backend;
+  :Display generated excuse;
+else (no)
+  :Show validation or network error;
+  stop
+endif
+
+if (Publish to wall?) then (yes)
+  :Publish generated excuse;
+  :Update public wall;
+else (no)
+endif
+
+:Save to personal history;
+:View history, stats, or wall feed;
+
+stop
+@enduml

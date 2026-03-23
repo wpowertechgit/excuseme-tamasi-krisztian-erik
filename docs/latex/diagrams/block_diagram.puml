@@ -1,0 +1,51 @@
+@startuml
+left to right direction
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam defaultTextAlignment center
+skinparam ranksep 70
+skinparam nodesep 35
+
+title Excuse Me - Block Diagram
+
+actor "User" as User
+
+rectangle "Client Layer" {
+  component "Flutter Mobile App" as Mobile
+}
+
+rectangle "Application Layer" {
+  component "FastAPI Backend" as Api
+  component "Authentication Module" as Auth
+  component "Excuse Generation Module" as Generate
+  component "Wall / Social Module" as Wall
+  component "History & Stats Module" as Stats
+}
+
+rectangle "Data Layer" {
+  database "Firestore" as Firestore
+}
+
+cloud "External Services" {
+  component "OpenRouter API" as OpenRouter
+  component "LLM Provider" as LLM
+}
+
+User --> Mobile : interacts with
+Mobile --> Api : HTTP / JSON
+
+Api --> Auth
+Api --> Generate
+Api --> Wall
+Api --> Stats
+
+Auth --> Firestore : users
+Generate --> Firestore : generations
+Wall --> Firestore : wall posts\nreactions
+Stats --> Firestore : history\naggregates
+
+Generate --> OpenRouter : prompt request
+OpenRouter --> LLM : model inference
+LLM --> OpenRouter : generated text
+OpenRouter --> Generate : excuse response
+@enduml

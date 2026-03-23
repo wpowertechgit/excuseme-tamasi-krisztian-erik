@@ -1,0 +1,54 @@
+@startuml
+skinparam shadowing false
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+
+title Excuse Me - Sequence Diagram
+
+actor User
+participant "Flutter Mobile App" as Mobile
+participant "FastAPI Backend" as Api
+participant "Firestore Repository" as Repo
+participant "OpenRouter API" as OpenRouter
+participant "LLM Provider" as LLM
+
+User -> Mobile : Enter truth and choose style
+User -> Mobile : Tap generate
+
+Mobile -> Api : POST /api/excuses/generate\ntruth, style, token
+activate Api
+
+Api -> Api : Validate request
+Api -> OpenRouter : Generate excuse prompt
+activate OpenRouter
+OpenRouter -> LLM : Request completion
+activate LLM
+LLM --> OpenRouter : Generated excuse
+deactivate LLM
+OpenRouter --> Api : excuse, language, category
+deactivate OpenRouter
+
+Api -> Repo : Save generation
+activate Repo
+Repo --> Api : generationId
+deactivate Repo
+
+Api --> Mobile : JSON response
+deactivate Api
+
+Mobile --> User : Display generated excuse
+
+opt Publish to public wall
+  User -> Mobile : Tap publish
+  Mobile -> Api : POST /api/wall/publish/{generationId}
+  activate Api
+  Api -> Repo : Mark generation as published
+  activate Repo
+  Repo -> Repo : Create wall post
+  Repo --> Api : wallPostId
+  deactivate Repo
+  Api --> Mobile : Publish confirmation
+  deactivate Api
+  Mobile --> User : Show updated wall state
+end
+@enduml

@@ -1,0 +1,186 @@
+@startuml
+left to right direction
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+skinparam ranksep 60
+skinparam nodesep 30
+
+title Excuse Me - Class Diagram
+
+package "Mobile Client" {
+  class AuthService {
+    +signUp(username, password)
+    +login(username, password)
+    +logout()
+    +loadSession()
+  }
+
+  class ExcuseApiService {
+    +generateExcuse(truth, style)
+    +publishGeneration(generationId)
+    +fetchHistory()
+    +fetchStats()
+    +fetchWallFeed()
+  }
+
+  class WallService {
+    +streamPosts()
+    +addPost(truth, excuse, style)
+    +incrementReaction(postId, emoji)
+    +deletePost(postId)
+  }
+
+  class AuthSession {
+    +token : String
+    +username : String
+    +isAdmin : bool
+  }
+
+  class ExcuseResponse {
+    +generationId : String
+    +excuse : String
+    +detectedLanguage : String
+    +style : String
+    +category : ExcuseCategory
+  }
+
+  class HistoryEntry {
+    +id : String
+    +truth : String
+    +excuse : String
+    +style : AlibiStyle
+    +publishedToWall : bool
+  }
+
+  class WallPost {
+    +id : String
+    +username : String
+    +truth : String
+    +excuse : String
+    +reactions : Map<String,int>
+    +totalReactions() : int
+  }
+
+  class StatsOverview {
+    +totalGenerations : int
+    +publishedCount : int
+  }
+}
+
+package "Backend" {
+  class GenerateExcuseRequest {
+    +truth : String
+    +style : AlibiStyle
+  }
+
+  class GenerateExcuseResponse {
+    +generationId : String
+    +excuse : String
+    +detectedLanguage : String
+    +style : AlibiStyle
+    +category : ExcuseCategory
+  }
+
+  class AuthRequest {
+    +username : String
+    +password : String
+  }
+
+  class AuthResponse {
+    +token : String
+    +username : String
+    +isAdmin : bool
+  }
+
+  class UserRecord {
+    +id : String
+    +username : String
+    +password_hash : String
+    +is_admin : bool
+  }
+
+  class GenerationRecord {
+    +id : String
+    +user_id : String
+    +truth : String
+    +excuse : String
+    +style : AlibiStyle
+    +category : ExcuseCategory
+    +published_to_wall : bool
+  }
+
+  class WallPostRecord {
+    +id : String
+    +username : String
+    +truth : String
+    +excuse : String
+    +reactions : Map<String,int>
+    +generation_id : String
+    +total_reactions() : int
+  }
+
+  class InMemoryRepository {
+    +create_user()
+    +create_generation()
+    +create_wall_post_from_generation()
+    +list_history_for_user()
+    +list_wall_posts()
+    +increment_wall_reaction()
+    +delete_wall_post()
+  }
+
+  class FirestoreRepository {
+    +create_user()
+    +create_generation()
+    +create_wall_post_from_generation()
+    +list_history_for_user()
+    +list_wall_posts()
+    +increment_wall_reaction()
+    +delete_wall_post()
+  }
+}
+
+enum AlibiStyle {
+  goofy
+  serious
+}
+
+enum ExcuseCategory {
+  work
+  personal
+  family
+  romance
+  health
+  sports
+  travel
+  other
+}
+
+AuthService --> AuthSession
+ExcuseApiService --> ExcuseResponse
+ExcuseApiService --> HistoryEntry
+ExcuseApiService --> StatsOverview
+ExcuseApiService --> WallPost
+WallService --> ExcuseApiService
+WallService --> WallPost
+
+GenerateExcuseRequest --> AlibiStyle
+GenerateExcuseResponse --> AlibiStyle
+GenerateExcuseResponse --> ExcuseCategory
+GenerationRecord --> AlibiStyle
+GenerationRecord --> ExcuseCategory
+
+AuthResponse --> UserRecord
+InMemoryRepository --> UserRecord
+InMemoryRepository --> GenerationRecord
+InMemoryRepository --> WallPostRecord
+FirestoreRepository --> UserRecord
+FirestoreRepository --> GenerationRecord
+FirestoreRepository --> WallPostRecord
+
+ExcuseResponse .. GenerateExcuseResponse
+AuthSession .. AuthResponse
+HistoryEntry .. GenerationRecord
+WallPost .. WallPostRecord
+@enduml

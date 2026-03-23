@@ -27,22 +27,9 @@ class OpenRouterError(Exception):
 
 
 LANGUAGE_HINTS = {
-    'hu': {
-        'patterns': [r'[áéíóöőúüűÁÉÍÓÖŐÚÜŰ]'],
-        'tokens': {'hogy', 'mert', 'volt', 'vagy', 'egy', 'az', 'és', 'nem'},
-    },
-    'es': {
-        'patterns': [r'[ñáéíóúÑÁÉÍÓÚ]'],
-        'tokens': {'el', 'la', 'de', 'que', 'porque', 'una', 'un', 'me'},
-    },
-    'pl': {
-        'patterns': [r'[ąćęłńóśźżĄĆĘŁŃÓŚŹŻ]'],
-        'tokens': {'sie', 'się', 'nie', 'tak', 'ale', 'że', 'bo', 'jest'},
-    },
-    'en': {
-        'patterns': [],
-        'tokens': {'the', 'and', 'because', 'was', 'were', 'late', 'my', 'I'},
-    },
+    'hu': {'tokens': {'hogy', 'mert', 'volt', 'vagy', 'egy', 'az', 'és', 'nem'}},
+    'es': {'tokens': {'el', 'la', 'de', 'que', 'porque', 'una', 'un'}},
+    'pl': {'tokens': {'sie', 'się', 'nie', 'tak', 'ale', 'że', 'bo', 'jest'}},
 }
 
 
@@ -52,11 +39,7 @@ def _detect_language(text: str) -> str:
     scores: dict[str, int] = {}
 
     for language, hints in LANGUAGE_HINTS.items():
-        score = 0
-        for pattern in hints['patterns']:
-            if re.search(pattern, text):
-                score += 3
-        score += sum(1 for word in words if word in hints['tokens'])
+        score = sum(1 for word in words if word in hints['tokens'])
         scores[language] = score
 
     best_language = max(scores, key=scores.get)
@@ -235,4 +218,3 @@ class OpenRouterClient:
             raise OpenRouterError('Model returned an empty excuse.')
 
         return content
-

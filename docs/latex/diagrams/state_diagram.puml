@@ -1,0 +1,35 @@
+@startuml
+skinparam shadowing false
+skinparam defaultTextAlignment center
+
+title Excuse Me - State Diagram
+
+[*] --> Unauthenticated : app opened
+
+Unauthenticated --> Authenticating : sign up / log in
+Authenticating --> EditingInput : authentication success
+Authenticating --> Unauthenticated : authentication failed
+
+EditingInput --> EditingInput : update truth / style
+EditingInput --> Generating : submit request
+
+Generating --> ResultShown : generation success
+Generating --> ErrorState : validation or network error
+
+ErrorState --> EditingInput : retry
+ResultShown --> EditingInput : regenerate
+ResultShown --> Publishing : publish to wall
+
+Publishing --> ResultShown : publish success
+Publishing --> ErrorState : publish failed
+
+EditingInput --> Unauthenticated : log out
+ResultShown --> Unauthenticated : log out
+
+Unauthenticated : User has no valid session
+EditingInput : Truth and style are being prepared
+Generating : Request is processed by backend
+ResultShown : Generated excuse is displayed
+Publishing : Result is posted to public wall
+ErrorState : Operation failed
+@enduml

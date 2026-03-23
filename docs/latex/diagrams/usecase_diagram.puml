@@ -1,0 +1,47 @@
+@startuml
+left to right direction
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam actorStyle stickman
+
+title Excuse Me - Use Case Diagram
+
+actor "Guest User" as Guest
+actor "Authenticated User" as User
+actor "Administrator" as Admin
+
+User --|> Guest
+Admin --|> User
+
+rectangle "Excuse Me System" {
+  usecase "Sign Up" as UC_SignUp
+  usecase "Log In" as UC_Login
+  usecase "Generate Excuse" as UC_Generate
+  usecase "Choose Style\n(Goofy / Serious)" as UC_Style
+  usecase "View Public Wall" as UC_Wall
+  usecase "React to Wall Post" as UC_React
+  usecase "Publish Generated Excuse" as UC_Publish
+  usecase "View Personal History" as UC_History
+  usecase "View Statistics" as UC_Stats
+  usecase "Browse Category Feed" as UC_Category
+  usecase "View Leaderboard" as UC_Leaderboard
+  usecase "Delete Wall Post" as UC_Delete
+}
+
+Guest --> UC_SignUp
+Guest --> UC_Login
+Guest --> UC_Wall
+Guest --> UC_React
+Guest --> UC_Category
+Guest --> UC_Leaderboard
+
+User --> UC_Generate
+User --> UC_Publish
+User --> UC_History
+User --> UC_Stats
+
+Admin --> UC_Delete
+
+UC_Generate .> UC_Style : <<include>>
+UC_Publish .> UC_Generate : <<extend>>
+@enduml

@@ -1,0 +1,50 @@
+@startuml
+left to right direction
+skinparam shadowing false
+skinparam linetype ortho
+skinparam packageStyle rectangle
+skinparam defaultTextAlignment center
+skinparam rectangle {
+  RoundCorner 14
+}
+skinparam ranksep 130
+skinparam nodesep 75
+
+title Excuse Me - UI Diagram
+
+rectangle "Auth Screen\n(Login / Sign Up)" as Auth
+
+rectangle "Home Screen" as Home {
+  rectangle "Generator Tab" as Generator
+  rectangle "Wall of Shame Tab" as Wall
+  rectangle "Drawer Menu" as Drawer
+}
+
+rectangle "Stats Screen" as Stats
+rectangle "History Screen" as History
+rectangle "Categories Screen" as Categories
+rectangle "Hall of Fame Screen" as Hall
+
+Stats -[hidden]-> History
+History -[hidden]-> Categories
+Categories -[hidden]-> Hall
+
+Generator -[hidden]-> Drawer
+Drawer -[hidden]-> Wall
+
+Auth --> Home : auth success
+Home --> Auth : sign in
+
+Generator --> Wall : publish
+History --> Generator : reuse
+
+Drawer --> Stats : open
+Drawer --> History : open
+Drawer --> Categories : open
+Drawer --> Hall : open
+
+Stats --> Home
+History --> Home
+Categories --> Home
+Hall --> Home
+@enduml
