@@ -12,8 +12,7 @@ Excuse Me
 Excuse Me is a mobile app that turns real excuses into funny or serious alibis. Users enter the truth, choose a tone, and the app generates a more polished excuse through the backend.
 
 ## Documentation
-- LaTeX project documentation: [docs/latex/main.tex](docs/latex/main.tex)
-- Compiled PDF version: [docs/latex/main.pdf](docs/latex/main.pdf)
+- Documentation PDF version: [docs/latex/main.pdf](docs/latex/main.pdf)
 
 ## Features
 - Generate excuses in `GOOFY` or `SERIOUS` mode
